@@ -85,3 +85,171 @@ respfor <- function(msg, ..., lst = list()){
     resp
 }
 
+
+
+
+## DESCIBE
+
+.nrepl_version <- c(0L, 0L, 1L)
+
+.nrepl_versions <- function(verbose = F){
+    bendict(major = .nrepl_version[[1]],
+            minor = .nrepl_version[[2]],
+            incremental = .nrepl_version[[3]], 
+            'version-string' = paste(.nrepl_version, collapse = "."))
+}
+
+.R_versions <- function(verbose = F){
+    rv <-
+        if(verbose) unclass(R.version)
+        else list() 
+    rv3 <- as.vector(unclass(getRversion()))[[1]]
+    rv[c("major", "minor", "incremental")] <- rv3
+    rv[["version-string"]] <- R.version.string
+    rv[["version.string"]] <- NULL
+    as.bendict(rv)
+}
+
+##' @rdname middlewares
+##' @export
+mw_describe <-
+    middleware("mw_describe", handles = "describe",
+               fun =
+                 function(h){
+                     function(op, transport, ops, `verbose?` = FALSE, ...){
+                         if( op == "describe"){
+                             resp <- respfor(
+                                 list(...),
+                                 ops = if(`verbose?`) ops
+                                       else sapply(ops, function(x) bendict(),
+                                                   simplify=F),
+                                 versions = bendict(
+                                     nrepl = .nrepl_versions(`verbose?`), 
+                                     R = .R_versions(`verbose?`)),
+                                 status = "done")
+                             transport$write(resp)
+                         } else {
+                             h(op = op, transport = transport, ...)
+                         }
+                     }
+                 })
+
+
+
+## SESSION
+
+##' @rdname middlewares 
+##' @export
+mw_session <-
+    middleware("mw_session", handles = c("close", "ls-sessions", "clone"),
+               fun =
+                 function(h){
+                     function(op, transport, session = .default_session_id, ...){
+                         the_session <- sessions[[session]]
+                         msg <- assoc(list(...), session = session)
+                         switch(op,
+                                "clone" = {
+                                    new_session <- create_session(transport, the_session)
+                                    transport$write(respfor(msg,
+                                                            'new-session' = new_session[["id"]], 
+                                                            status = c("done", "session-cloned")))
+                                },
+                                "close" = {
+                                    sessions[[the_session[["id"]]]] <- NULL
+                                    transport$write(respfor(msg,
+                                                            status = c("done", "session-closed")))
+                                },
+                                "ls-sessions" = {
+                                    transport$write(respfor(msg,
+                                                            status = "done",
+                                                            sessions = ls(sessions)))
+                                },
+                                h(op = op, transport = transport, session = session, ...))
+                     }
+                 })
+
+
+
+## EVAL
+
+eval_handler <- function(msg, transport = transport_bencode){
+    gr_id <- 0L
+    new_output_handler(
+        source = function(x) NULL,
+        text = function(x){
+            transport$write(respfor(msg, out = x, status = "eval-out"))
+        },
+        value = function(x){
+            transport$write(respfor(msg, value = x, status = "eval-value"))
+        }, 
+        message = function(x){
+            transport$write(respfor(msg, message = x$message, status = "eval-message"))
+        },
+        warning = function(x){
+            transport$write(respfor(msg, warning = x$message, status = "eval-warning"))
+        },
+        error = function(x){
+            transport$write(respfor(msg, error = x$message, status = "eval-error"))
+        },
+        graphics = function(x){
+            transport$write(respfor(msg, graphics = sprintf("[%d]", gr_id),
+                                    status = "eval-graphics" ))
+            gr_id <<- gr_id + 1L
+        })
+}
+
+##' @rdname middlewares
+##' @export
+mw_eval <-
+    middleware("mw_eval", handles = c("eval"),
+               fun =
+                 function(h){
+                     function(op, transport, code = NULL, ...){
+                         if(op == "eval"){
+                             msg <- list(...)
+                             if( is.null(code) )
+                                 transport$write(
+                                     respfor(msg, status = c("error", "no-code", "done")))
+                             else {
+                                 evaluate(code, new_device = F, stop_on_error = 1L,
+                                          output_handler =
+                                            eval_handler(msg, transport = transport))
+                                 transport$write(respfor(msg, status = "done"))
+                             }
+                         } else
+                             h(op = op, transport = transport, ...)
+                     }
+                 })
+
+
+
+##' Default middleware.
+##'
+##' All default middlewares are stored within \code{middlewares} environment
+##' inside this package. Users and add-on packages can append custom middleware
+##' to this environment. See help page of \code{\link{middleware}} for more
+##' details.
+##'
+##' Default middlewares are:
+##' \itemize{
+##'
+##'   \item{mw_session}{Return a handler for interactive evaluation. Provides
+##' "eval" operation.}
+##'      
+##'   \item{mw_describe}{Return a handler for session management. Supported ops
+##' are "clone", "close" and "ls-sessions".}
+##'
+##'   \item{mw_eval}{Return a handler for interactive evaluation. Provides
+##' "eval" operation.}
+##' 
+##' }
+##' @name middlewares
+NULL
+
+##' @export
+middlewares <-
+    list2env(list(session = mw_session, 
+                  describe = mw_describe,
+                  eval = mw_eval))
+
+

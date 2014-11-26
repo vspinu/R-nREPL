@@ -1,31 +1,3 @@
-##' Default middleware.
-##'
-##' All default middlewares are stored within \code{middlewares} environment
-##' inside this package. Users and add-on packages can append custom middleware
-##' to this environment. See help page of \code{\link{middleware}} for more
-##' details.
-##'
-##' Default middlewares are:
-##' \itemize{
-##'
-##'   \item{mw_session}{Return a handler for interactive evaluation. Provides
-##' "eval" operation.}
-##'      
-##'   \item{mw_describe}{Return a handler for session management. Supported ops
-##' are "clone", "close" and "ls-sessions".}
-##'
-##'   \item{mw_eval}{Return a handler for interactive evaluation. Provides
-##' "eval" operation.}
-##' 
-##' }
-##' @name middlewares
-NULL
-
-##' @export
-middlewares <-
-    list2env(list(session = mw_session, 
-                  describe = mw_describe,
-                  eval = mw_eval))
 
 ##' nREPL Server.
 ##'
