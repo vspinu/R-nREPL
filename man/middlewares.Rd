@@ -6,11 +6,14 @@
 \alias{mw_session}
 \title{Default middleware.}
 \usage{
-mw_describe(h1)
+mw_describe(handler)
 
-mw_eval(h1)
+mw_session(handler)
 
-mw_session(h1)
+mw_eval(handler)
+}
+\arguments{
+\item{handler}{Handler function. See \code{\link{middleware}}.}
 }
 \description{
 All default middlewares are stored within \code{middlewares} environment
@@ -22,13 +25,13 @@ details.
 Default middlewares are:
 \itemize{
 
-\item{mw_session}{Return a handler for interactive evaluation. Provides
+\item{\code{mw_session}: }{Return a handler for interactive evaluation. Provides
 "eval" operation.}
 
-\item{mw_describe}{Return a handler for session management. Supported ops
+\item{\code{mw_describe}: }{Return a handler for session management. Supported ops
 are "clone", "close" and "ls-sessions".}
 
-\item{mw_eval}{Return a handler for interactive evaluation. Provides
+\item{\code{mw_eval}: }{Return a handler for interactive evaluation. Provides
 "eval" operation.}
 
 }

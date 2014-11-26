@@ -55,8 +55,8 @@ middleware <- function(name,
              requires = requires)
     
     wrapped_fun <-
-        function(h1){
-            h2 <- fun(h1)
+        function(handler){
+            h2 <- fun(handler)
             function(op, ops = list(), ...){
                 if( op == "describe" ){
                     ops[[name]] <- handles
@@ -71,7 +71,7 @@ middleware <- function(name,
     wrapped_fun
 }
 
-##' @describeIn middleware Response constructor utility.
+##' @rdname middleware
 ##' @param msg Incoming message containing \code{id} and \code{session}
 ##' elements.
 ##' @param ... key-value pairs of response
@@ -111,6 +111,7 @@ respfor <- function(msg, ..., lst = list()){
 }
 
 ##' @rdname middlewares
+##' @param handler Handler function. See \code{\link{middleware}}.
 ##' @export
 mw_describe <-
     middleware("mw_describe", handles = "describe",
@@ -233,13 +234,13 @@ mw_eval <-
 ##' Default middlewares are:
 ##' \itemize{
 ##'
-##'   \item{mw_session}{Return a handler for interactive evaluation. Provides
+##'   \item{\code{mw_session}: }{Return a handler for interactive evaluation. Provides
 ##' "eval" operation.}
 ##'      
-##'   \item{mw_describe}{Return a handler for session management. Supported ops
+##'   \item{\code{mw_describe}: }{Return a handler for session management. Supported ops
 ##' are "clone", "close" and "ls-sessions".}
 ##'
-##'   \item{mw_eval}{Return a handler for interactive evaluation. Provides
+##'   \item{\code{mw_eval}: }{Return a handler for interactive evaluation. Provides
 ##' "eval" operation.}
 ##' 
 ##' }

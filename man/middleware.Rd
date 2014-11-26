@@ -66,10 +66,6 @@ inside. An addon package can populate that environment with additional
 middlewares. Alternatively \code{\link{start_server}} function accepts
 \code{additional_middlewares} arguments.
 }
-\section{Functions}{
-\itemize{
-\item \code{}: Response constructor utility.
-}}
 \seealso{
 \code{\link{start_server}}, \code{\link{transport}},
 \code{\link{respfor}}, \code{\link{mw_describe}}, \code{\link{mw_describe}},

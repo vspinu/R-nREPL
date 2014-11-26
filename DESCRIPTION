@@ -2,10 +2,12 @@ Package: nREPL
 Type: Package
 Title: nREPL client and server for R.
 Version: 0.0.1
-Date: 2014-11-11
+Date: 2014-11-29
 Authors@R: as.person(c("Vitalie Spinu <spinuvit@gmail.com> [aut, cre]"))
 Maintainer: Vitalie Spinu <spinuvit@gmail.com>
-Description: 
+Description: nREPL is *n*etwork REPL that provides a REPL server and client,
+    along with some common APIs of use to IDEs and other tools that may
+    need to evaluate R code in remote environments.
 Depends:
     R (>= 2.14.1)
 Imports:

@@ -33,8 +33,6 @@ transport_bencode <- function(con){
            }, 
          close =
            function(){
-               cache <<- list()
-               N <<- 0L
                close(con)
            },
          con = con)
@@ -54,10 +52,7 @@ transport_print <- function(con){
                writeLines(out, con)
            }, 
          close =
-           function(){
-               cache <<- list()
-               N <<- 0L
-           },
+           function(){},
          con = con)
 }
 
