@@ -1,0 +1,10 @@
+*-tikzDictionary
+*.aux
+*.log
+*.out
+*.sty
+inst/examples/cache
+inst/examples/figure
+.Rhistory
+
+notes.org
