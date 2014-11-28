@@ -88,7 +88,7 @@ respfor <- function(msg, ..., lst = list()){
 
 
 
-## DESCIBE
+## DESCRIBE
 
 .nrepl_version <- c(0L, 0L, 1L)
 
@@ -127,7 +127,7 @@ mw_describe <-
                                  versions = bendict(
                                      nrepl = .nrepl_versions(`verbose?`), 
                                      R = .R_versions(`verbose?`)),
-                                 status = "done")
+                                 status = list("done"))
                              transport$write(resp)
                          } else {
                              h(op = op, transport = transport, ...)
@@ -153,16 +153,16 @@ mw_session <-
                                     new_session <- create_session(transport, the_session)
                                     transport$write(respfor(msg,
                                                             'new-session' = new_session[["id"]], 
-                                                            status = c("done", "session-cloned")))
+                                                            status = list("done", "session-cloned")))
                                 },
                                 "close" = {
                                     sessions[[the_session[["id"]]]] <- NULL
                                     transport$write(respfor(msg,
-                                                            status = c("done", "session-closed")))
+                                                            status = list("done", "session-closed")))
                                 },
                                 "ls-sessions" = {
                                     transport$write(respfor(msg,
-                                                            status = "done",
+                                                            status = list("done"),
                                                             sessions = ls(sessions)))
                                 },
                                 h(op = op, transport = transport, session = session, ...))
@@ -210,12 +210,12 @@ mw_eval <-
                              msg <- list(...)
                              if( is.null(code) )
                                  transport$write(
-                                     respfor(msg, status = c("error", "no-code", "done")))
+                                     respfor(msg, status = list("error", "no-code", "done")))
                              else {
                                  evaluate(code, new_device = F, stop_on_error = 1L,
                                           output_handler =
                                             eval_handler(msg, transport = transport))
-                                 transport$write(respfor(msg, status = "done"))
+                                 transport$write(respfor(msg, status = list("done")))
                              }
                          } else
                              h(op = op, transport = transport, ...)
