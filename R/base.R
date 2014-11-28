@@ -48,19 +48,19 @@ create_session <- function(transport, from_session = NULL){
     }
 }
 
-add_session_maybe <- function(h){
-    function(transport, session = NULL, ...){
+pre_handle <- function(h){
+    function(id, op, transport, session = NULL, ...){
+        cat(as.character(Sys.time()), "-->>", "[", id, "]", op, "\n")
         if(is.null(session)){
             ## create a new session each time
             the_session <- create_session(transport)
-            h(session = the_session[["id"]], ...)
+            session <- the_session[["id"]]
         } else if ( is.null(the_session <- sessions[[session]]) ){
             ## we check here for session id for any mw!
-            transport$write(respfor(assoc(list(...), session = session),
-                                    status = c("error", "unknown-session", "done")))
-        } else {
-            h(transport = transport, session = session, ...)
-        }
+            transport$write(list(id = id, session = session,
+                                 status = c("error", "unknown-session", "done")))
+        }    
+        h(id = id, op = op, transport = transport, session = session, ...)
     }
 }
 
