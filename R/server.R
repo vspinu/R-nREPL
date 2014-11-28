@@ -14,15 +14,24 @@
 ##' object. See \code{\link{transport}}.
 ##' @seealso \link{middlewares}
 ##' @export
-start_server <- function(port = 4005,
+start_server <- function(port = 4005, ## as.integer(runif(1, 4000, 99999)), 
                          handler = default_handler(),
                          transport_fn = transport_bencode){
-    cat("Started server on port =", port, "\nWaiting for conection ... ")
-    ss <- socketConnection(port = port, server = TRUE, open = "r+b")
-    transport <- transport_fn(ss)
-    cat("connection established.\n")
-    on.exit(transport$close())
-    handle_messages(transport, handler)
+    ## fixme: implement programmatic way to end the server?
+    while(TRUE){
+        cat("nREPL server started on port", port, "\nWaiting for connection ... ")
+        ss <- socketConnection(port = port, server = TRUE,
+                               open = "r+b", blocking = TRUE)
+        transport <- transport_fn(ss)
+        on.exit(transport$close())
+        cat("connected.\n")
+        tryCatch(handle_messages(transport, handler),
+                 endOfInput = function(c){
+                     cat("End of input while reading from connection.\n")
+                     ## R doesn't allow re-connection, so close and restart
+                     transport$close()
+                 })
+    }
 }
 
 ##' @rdname server
@@ -30,7 +39,7 @@ start_server <- function(port = 4005,
 ##' the list of default \code{\link{middlewares}}
 ##' @export
 default_handler <- function(additional_middlewares = list()){
-    add_session_maybe(mw_session(mw_eval(mw_describe(unknown_op))))
+    pre_handle(mw_session(mw_eval(mw_describe(unknown_op))))
 }
 
 ## default_handler <- function(additional_middlewares = list()){
