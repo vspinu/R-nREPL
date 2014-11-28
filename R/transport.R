@@ -15,6 +15,7 @@ NULL
 ##' @rdname transport
 ##' @export
 transport_bencode <- function(con, verbose = TRUE){
+    stdin <- stdin()
     list(read =
            function(timeout = NULL){
                ## socketSelect accepts only integer seconds
@@ -27,9 +28,10 @@ transport_bencode <- function(con, verbose = TRUE){
            }, 
          write =
            function(obj){
-               if(verbose)
-                   cat(as.character(Sys.time()),
-                       "<<--", "[", obj[["id"]], "]", as.character(obj[["status"]]), "\n")
+               ## if(verbose)
+               ##     cat(as.character(Sys.time()),
+               ##         "<<--", "[", obj[["id"]], "]", as.character(obj[["status"]]), "\n",
+               ##         file = stdin)
                obj <- bencode(as.bendict(obj))
                writeChar(obj, con, eos = NULL)
                flush(con)

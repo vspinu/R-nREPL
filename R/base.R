@@ -22,12 +22,13 @@ NULL
 
 ### COUNTER
 
-message_id <- 0L
-
-uid <- function(){
-    message_id <<- message_id + 1L
-    message_id
-}
+uid <- local({
+    message_id <- 0L
+    function(){
+        message_id <<- message_id + 1L
+        message_id
+    }
+})
 
 
 ### SESSIONS

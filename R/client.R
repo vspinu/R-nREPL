@@ -29,9 +29,10 @@ NULL
 ##' @param transport_fn Constructor that returns a transport connection
 ##' object. See \code{\link{transport}}.
 ##' @export 
-connect <- function(port = 4005, host = "localhost", transport_fn = transport_bencode){
+connect <- function(port = 4005, host = "localhost",
+                    transport_fn = transport_bencode, verbose = FALSE){
     con <- socketConnection(host = host, port = port, open = "r+b", blocking = T)
-    transport_fn(con)
+    transport_fn(con, verbose = verbose)
 }
 
 ##' @rdname client
