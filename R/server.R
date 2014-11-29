@@ -65,7 +65,7 @@ handle_messages <- function(transport, handler){
 
         if(!is.null(msg)){
             ## handle
-            tryCatch(do.call(handler, assoc(msg, transport = transport)),
+            tryCatch(do.call(handler, assoc(msg, tr = transport)),
                      error = function(e){
                          cat("Unhandled exception on message\n")
                          print(msg)

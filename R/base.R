@@ -50,28 +50,28 @@ create_session <- function(transport, from_session = NULL){
 }
 
 pre_handle <- function(h){
-    function(id, op, transport, session = NULL, ...){
+    function(id, op, tr, session = NULL, ...){
         cat(as.character(Sys.time()), sprintf("-->> [%s]", id), op, "\n")
         if(is.null(session)){
             ## create a new session each time
-            the_session <- create_session(transport)
+            the_session <- create_session(tr)
             session <- the_session[["id"]]
         } else if ( is.null(the_session <- sessions[[session]]) ){
             ## we check here for session id for any mw!
-            transport$write(list(id = id, session = session,
+            tr$write(list(id = id, session = session,
                                  status = c("error", "unknown-session", "done")))
             return()
         }
-        h(id = id, op = op, transport = transport, session = session, ...)
+        h(id = id, op = op, tr = tr, session = session, ...)
     }
 }
 
 
 ### MIDDLEWARE NUTS AND BOLTS 
 
-unknown_op <- function(op, transport, ...){
+unknown_op <- function(op, tr, ...){
     resp <- respfor(list(...), op = op, status = c("error", "unknown-op", "done"))
-    transport$write(resp)
+    tr$write(resp)
 }
 
 linearize_mws <- function(mws){

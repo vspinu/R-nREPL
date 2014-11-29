@@ -109,7 +109,7 @@ test_middleware <- function(mw, ...){
     h <- pre_handle(mw(unknown_op))
     trs <- nREPL:::transport_print(con)
     id <- 9999L
-    tryCatch(h(id = id, transport = trs, ...),
+    tryCatch(h(id = id, tr = trs, ...),
              backToTopError = function(c){
                  trs$write(errorfor(c(list(id = id, session = "R/test"), list(...)),
                                     c$message, additional_status = c$status))
@@ -167,7 +167,7 @@ mw_describe <-
     middleware("mw_describe", handles = "describe",
                fun =
                  function(h){
-                     function(op, transport, ops, `verbose?` = FALSE, ...){
+                     function(op, tr, ops, `verbose?` = FALSE, ...){
                          if( op == "describe"){
                              resp <- respfor(
                                  list(...),
@@ -178,9 +178,9 @@ mw_describe <-
                                      nrepl = .nrepl_versions(`verbose?`), 
                                      R = .R_versions(`verbose?`)),
                                  status = list("done"))
-                             transport$write(resp)
+                             tr$write(resp)
                          } else {
-                             h(op = op, transport = transport, ...)
+                             h(op = op, tr = tr, ...)
                          }
                      }
                  })
@@ -195,27 +195,27 @@ mw_session <-
     middleware("mw_session", handles = c("close", "ls-sessions", "clone"),
                fun =
                  function(h){
-                     function(op, transport, session = .default_session_id, ...){
+                     function(op, tr, session = .default_session_id, ...){
                          the_session <- sessions[[session]]
                          msg <- assoc(list(...), session = session)
                          switch(op,
                                 "clone" = {
-                                    new_session <- create_session(transport, the_session)
-                                    transport$write(respfor(msg,
+                                    new_session <- create_session(tr, the_session)
+                                    tr$write(respfor(msg,
                                                             'new-session' = new_session[["id"]], 
                                                             status = list("done", "session-cloned")))
                                 },
                                 "close" = {
                                     sessions[[the_session[["id"]]]] <- NULL
-                                    transport$write(respfor(msg,
+                                    tr$write(respfor(msg,
                                                             status = list("done", "session-closed")))
                                 },
                                 "ls-sessions" = {
-                                    transport$write(respfor(msg,
+                                    tr$write(respfor(msg,
                                                             status = list("done"),
                                                             sessions = ls(sessions)))
                                 },
-                                h(op = op, transport = transport, session = session, ...))
+                                h(op = op, tr = tr, session = session, ...))
                      }
                  })
 
@@ -223,27 +223,27 @@ mw_session <-
 
 ## EVAL
 
-eval_handler <- function(msg, transport = transport_bencode){
+eval_handler <- function(msg, tr = transport_bencode){
     gr_id <- 0L
     new_output_handler(
         source = function(x) NULL,
         text = function(x){
-            transport$write(respfor(msg, out = x, status = list("eval-out")), F)
+            tr$write(respfor(msg, out = x, status = list("eval-out")), F)
         },
         value = function(x){
-            transport$write(respfor(msg, value = x, status = list("eval-value")), F)
+            tr$write(respfor(msg, value = x, status = list("eval-value")), F)
         }, 
         message = function(x){
-            transport$write(respfor(msg, message = x$message, status = list("eval-message")), F)
+            tr$write(respfor(msg, message = x$message, status = list("eval-message")), F)
         },
         warning = function(x){
-            transport$write(respfor(msg, warning = x$message, status = list("eval-warning")), F)
+            tr$write(respfor(msg, warning = x$message, status = list("eval-warning")), F)
         },
         error = function(x){
-            transport$write(respfor(msg, error = x$message, status = list("eval-error")), F)
+            tr$write(respfor(msg, error = x$message, status = list("eval-error")), F)
         },
         graphics = function(x){
-            transport$write(respfor(msg, graphics = sprintf("[%d]", gr_id),
+            tr$write(respfor(msg, graphics = sprintf("[%d]", gr_id),
                                     status = list("eval-graphics") ), F)
             gr_id <<- gr_id + 1L
         })
@@ -255,25 +255,25 @@ mw_eval <-
     middleware("mw_eval", handles = c("eval"),
                fun =
                  function(h){
-                     function(op, transport, code = NULL, ...){
+                     function(op, tr, code = NULL, ...){
                          if(op == "eval"){
                              msg <- list(...)
                              if( is.null(code) )
-                                 transport$write(
+                                 tr$write(
                                      respfor(msg, status = list("error", "no-code", "done")))
                              else {
                                  tryCatch(
                                      evaluate(code, new_device = F, stop_on_error = 1L,
                                               output_handler =
-                                                eval_handler(msg, transport = transport)),
+                                                eval_handler(msg, tr = tr)),
                                      error = function(x){
-                                         transport$write(respfor(msg, error = x$message,
+                                         tr$write(respfor(msg, error = x$message,
                                                                  status = list("eval-error")), F)
                                      })
-                                 transport$write(respfor(msg, status = list("done")))
+                                 tr$write(respfor(msg, status = list("done")))
                              }
                          } else
-                             h(op = op, transport = transport, ...)
+                             h(op = op, tr = tr, ...)
                      }
                  })
 
