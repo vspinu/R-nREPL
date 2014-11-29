@@ -30,7 +30,7 @@ transport_bencode <- function(con, verbose = TRUE){
            function(obj, verbose = vbs){
                if(verbose)
                    cat(as.character(Sys.time()),
-                       "<<--", "[", obj[["id"]], "]", as.character(obj[["status"]]), "\n")
+                       sprintf("<<-- [%s]", obj[["id"]]), as.character(obj[["status"]]), "\n")
                obj <- bencode(as.bendict(obj))
                writeChar(obj, con, eos = NULL)
                flush(con)

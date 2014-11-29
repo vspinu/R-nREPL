@@ -50,7 +50,7 @@ create_session <- function(transport, from_session = NULL){
 }
 
 pre_handle <- function(h){
-    function(id, op, transport, session = NULL, ns = NULL, ...){
+    function(id, op, transport, session = NULL, ...){
         cat(as.character(Sys.time()), sprintf("-->> [%s]", id), op, "\n")
         if(is.null(session)){
             ## create a new session each time
@@ -62,8 +62,7 @@ pre_handle <- function(h){
                                  status = c("error", "unknown-session", "done")))
             return()
         }
-        if (is.null(ns)) ns <- ".GlobalEnv"
-        h(id = id, op = op, transport = transport, session = session, ns = ns, ...)
+        h(id = id, op = op, transport = transport, session = session, ...)
     }
 }
 
