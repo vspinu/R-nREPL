@@ -15,9 +15,9 @@ NULL
 ##' @rdname transport
 ##' @export
 transport_bencode <- function(con, verbose = TRUE){
-    stdin <- stdin()
+    vbs <- verbose
     list(read =
-           function(timeout = NULL){
+           function(timeout = NULL, verbose = vbs){
                ## socketSelect accepts only integer seconds
                received <- 
                    if(!is.null(timeout))
@@ -27,11 +27,10 @@ transport_bencode <- function(con, verbose = TRUE){
                else NULL
            }, 
          write =
-           function(obj){
-               ## if(verbose)
-               ##     cat(as.character(Sys.time()),
-               ##         "<<--", "[", obj[["id"]], "]", as.character(obj[["status"]]), "\n",
-               ##         file = stdin)
+           function(obj, verbose = vbs){
+               if(verbose)
+                   cat(as.character(Sys.time()),
+                       "<<--", "[", obj[["id"]], "]", as.character(obj[["status"]]), "\n")
                obj <- bencode(as.bendict(obj))
                writeChar(obj, con, eos = NULL)
                flush(con)
@@ -44,15 +43,15 @@ transport_bencode <- function(con, verbose = TRUE){
 }
 
 ## test only
-transport_print <- function(con){
+transport_print <- function(con, verbose = TRUE){
     list(read =
-           function(timeout = NULL){
+           function(timeout = NULL, ...){
                stop("cannot read in test transport")
            }, 
          write =
-           function(obj){
+           function(obj, ...){
                ## obj <- bencode(as.bendict(obj))
-               out <- capture.output(print(as.bendict(obj)))
+               out <- capture.output(print(bdecode(bencode(obj))))
                out <- paste(out, collapse = "\n")
                writeLines(out, con)
            }, 

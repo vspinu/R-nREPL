@@ -50,8 +50,8 @@ create_session <- function(transport, from_session = NULL){
 }
 
 pre_handle <- function(h){
-    function(id, op, transport, session = NULL, ...){
-        cat(as.character(Sys.time()), "-->>", "[", id, "]", op, "\n")
+    function(id, op, transport, session = NULL, ns = NULL, ...){
+        cat(as.character(Sys.time()), sprintf("-->> [%s]", id), op, "\n")
         if(is.null(session)){
             ## create a new session each time
             the_session <- create_session(transport)
@@ -60,8 +60,10 @@ pre_handle <- function(h){
             ## we check here for session id for any mw!
             transport$write(list(id = id, session = session,
                                  status = c("error", "unknown-session", "done")))
-        }    
-        h(id = id, op = op, transport = transport, session = session, ...)
+            return()
+        }
+        if (is.null(ns)) ns <- ".GlobalEnv"
+        h(id = id, op = op, transport = transport, session = session, ns = ns, ...)
     }
 }
 
@@ -91,10 +93,12 @@ linearize_mws <- function(mws){
 
 ### INTERNAL UTILS
 
-assoc <- function(obj, ...){
+assoc <- function(obj, ..., non_null = FALSE){
     dots <- list(...)
-    for(nm in names(dots))
-        obj[[nm]] <- dots[[nm]]
+    for(nm in names(dots)){
+        if ( !(is.null(el <- dots[[nm]]) && non_null) )
+            obj[[nm]] <- el
+    }
     obj
 }
 

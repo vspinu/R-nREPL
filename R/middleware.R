@@ -71,10 +71,14 @@ middleware <- function(name,
     wrapped_fun
 }
 
-##' @rdname middleware
+##' Various utility functions for writing middleware.
+##' 
+##' @name middleware_utils
 ##' @param msg Incoming message containing \code{id} and \code{session}
 ##' elements.
-##' @param ... key-value pairs of response
+##' @param ... Key-value pairs of the response for \code{repfor} and
+##' \code{test_middleware}. Format arguments for \code{message} in
+##' \code{errorfor}.
 ##' @param lst A list which is merged with the elements in \code{...}
 ##' @export
 respfor <- function(msg, ..., lst = list()){
@@ -85,6 +89,52 @@ respfor <- function(msg, ..., lst = list()){
     resp
 }
 
+##' @rdname middleware_utils
+##' @param transport transport object as returned by \code{connect} or
+##' \code{transport_bencode}.
+##' @param message Error message to be sent through.
+##' @export
+errorfor <- function(msg, message = "", ..., additional_status = list()){
+    respfor(msg,
+            error = do.call(sprintf, c(list(message), list(...))),
+            status = c(list("error", "done"), additional_status))
+}
+
+##' @rdname middleware_utils
+##' @param mw Middleware to test
+##' @export
+test_middleware <- function(mw, ...){
+    con <- textConnection("test", open = "w")
+    on.exit(close(con))
+    h <- pre_handle(mw(unknown_op))
+    trs <- nREPL:::transport_print(con)
+    id <- 9999L
+    tryCatch(h(id = id, transport = trs, ...),
+             backToTopError = function(c){
+                 trs$write(errorfor(c(list(id = id, session = "R/test"), list(...)),
+                                    c$message, additional_status = c$status))
+             }, 
+             backToTop = function(c) NULL)
+    cat(textConnectionValue(con), sep = "\n")
+}
+
+##' @rdname middleware_utils
+##' @export
+backToTop <- function(){
+    cond <- simpleCondition("Return to top level")
+    class(cond) <- c("backToTop", class(cond))
+    signalCondition(cond)
+}
+
+##' @rdname middleware_utils
+##' @param msg Error message to send back to client on backToTop condition
+##' @export
+backToTopError <- function(message, ..., status = list()){
+    cond <- list(message = do.call(sprintf, c(list(message), list(...))),
+                 status = status)
+    class(cond) <- c("backToTopError", "condition")
+    signalCondition(cond)
+}
 
 
 
@@ -178,23 +228,23 @@ eval_handler <- function(msg, transport = transport_bencode){
     new_output_handler(
         source = function(x) NULL,
         text = function(x){
-            transport$write(respfor(msg, out = x, status = "eval-out"))
+            transport$write(respfor(msg, out = x, status = list("eval-out")), F)
         },
         value = function(x){
-            transport$write(respfor(msg, value = x, status = "eval-value"))
+            transport$write(respfor(msg, value = x, status = list("eval-value")), F)
         }, 
         message = function(x){
-            transport$write(respfor(msg, message = x$message, status = "eval-message"))
+            transport$write(respfor(msg, message = x$message, status = list("eval-message")), F)
         },
         warning = function(x){
-            transport$write(respfor(msg, warning = x$message, status = "eval-warning"))
+            transport$write(respfor(msg, warning = x$message, status = list("eval-warning")), F)
         },
         error = function(x){
-            transport$write(respfor(msg, error = x$message, status = "eval-error"))
+            transport$write(respfor(msg, error = x$message, status = list("eval-error")), F)
         },
         graphics = function(x){
             transport$write(respfor(msg, graphics = sprintf("[%d]", gr_id),
-                                    status = "eval-graphics" ))
+                                    status = list("eval-graphics") ), F)
             gr_id <<- gr_id + 1L
         })
 }
@@ -212,9 +262,14 @@ mw_eval <-
                                  transport$write(
                                      respfor(msg, status = list("error", "no-code", "done")))
                              else {
-                                 evaluate(code, new_device = F, stop_on_error = 1L,
-                                          output_handler =
-                                            eval_handler(msg, transport = transport))
+                                 tryCatch(
+                                     evaluate(code, new_device = F, stop_on_error = 1L,
+                                              output_handler =
+                                                eval_handler(msg, transport = transport)),
+                                     error = function(x){
+                                         transport$write(respfor(msg, error = x$message,
+                                                                 status = list("eval-error")), F)
+                                     })
                                  transport$write(respfor(msg, status = list("done")))
                              }
                          } else

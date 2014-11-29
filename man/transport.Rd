@@ -4,7 +4,7 @@
 \alias{transport_bencode}
 \title{Default transports.}
 \usage{
-transport_bencode(con)
+transport_bencode(con, verbose = TRUE)
 }
 \arguments{
 \item{con}{Connection object as returned by \code{\link{socketConnection}}.}

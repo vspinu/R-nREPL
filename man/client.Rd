@@ -7,7 +7,8 @@
 \alias{sync_request0}
 \title{Low level functions for client connections.}
 \usage{
-connect(port = 4005, host = "localhost", transport_fn = transport_bencode)
+connect(port = 4005, host = "localhost", transport_fn = transport_bencode,
+  verbose = FALSE)
 
 client(transport)
 
