@@ -121,7 +121,7 @@ test_middleware <- function(mw, ...){
 ##' @rdname middleware_utils
 ##' @export
 backToTop <- function(){
-    cond <- simpleCondition("Return to top level")
+    cond <- simpleError("Return to top level")
     class(cond) <- c("backToTop", class(cond))
     signalCondition(cond)
 }
@@ -132,8 +132,8 @@ backToTop <- function(){
 backToTopError <- function(message, ..., status = list()){
     cond <- list(message = do.call(sprintf, c(list(message), list(...))),
                  status = status)
-    class(cond) <- c("backToTopError", "condition")
-    signalCondition(cond)
+    class(cond) <- c("backToTopError", "error", "condition")
+    stop(cond)
 }
 
 
