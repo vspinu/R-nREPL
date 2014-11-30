@@ -50,11 +50,11 @@ default_handler <- function(additional_middlewares = list()){
 ## }
 
 
-handle_messages <- function(transport, handler){
+handle_messages <- function(tr, handler){
     while(TRUE){
 
         ## read message (re-init every 10 sec)
-        tryCatch(msg <- transport$read(10),
+        tryCatch(msg <- tr$read(10),
                  error = function(e) {
                      ## this is how we detect when connection was closed by peer
                      cond <- simpleCondition("End of input. Client closed?\n")
@@ -63,20 +63,18 @@ handle_messages <- function(transport, handler){
                  })
 
 
+        ## handle
         if(!is.null(msg)){
-            ## handle
-            tryCatch(do.call(handler, assoc(msg, tr = transport)),
+            tryCatch(do.call(handler, assoc(msg, tr = tr)),
                      error = function(e){
                          cat("Unhandled exception on message\n")
                          print(msg)
                          cat(as.character(e))
-                         transpor$write(errorfor(msg, e$message,
-                                                 additional_status = list("unhandled-exception")))
+                         tr$write(errorfor(msg, e$message,
+                                           additional_status = list("unhandled-exception")))
                      },
                      backToTopError = function(c){
-                         session <- if(is.null(msg[["session"]])) "R/default" else msg[["session"]]
-                         tranport$write(errorfor(c(list(id = msg[["id"]], session = session), list(...)),
-                                                 c$message, additional_status = c$status))
+                         tr$write(errorfor(msg, c$message, additional_status = c$status))
                      }, 
                      backToTop = function(c) NULL)
         }
