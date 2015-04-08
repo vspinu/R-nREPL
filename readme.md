@@ -6,7 +6,8 @@ server for [R](http://www.r-project.org/).
 
 ```R
 library(devtools)
-install_github("R-nREPL", "vspinu")
+install_github("vspinu/R-bencode")
+install_github("vspinu/R-nREPL")
 ```
 
 ## Communicate with Clojure ##
