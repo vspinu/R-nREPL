@@ -29,20 +29,33 @@ NULL
 ##' @param transport_fn Constructor that returns a transport connection
 ##' object. See \code{\link{transport}}.
 ##' @export 
-connect <- function(port = 4005, host = "localhost",
-                    transport_fn = transport_bencode, verbose = FALSE){
+connect_nrepl <- function(port = 4005, host = "localhost",
+                          transport_fn = transport_bencode, verbose = FALSE){
     con <- socketConnection(host = host, port = port, open = "r+b", blocking = T)
-    transport_fn(con, verbose = verbose)
+    structure(transport_fn(con, verbose = verbose), class = "nREPL")
 }
+
+##' @rdname client
+##' @export
+connect_epc <- function(port = 4006, host = "localhost",
+                        transport_fn = transport_swank, verbose = FALSE){
+    con <- socketConnection(host = host, port = port, open = "r+b", blocking = T)
+    structure(transport_fn(con, verbose = verbose), class = "EPC")
+}
+
 
 ##' @rdname client
 ##' @param transport Transport connection object returned by \code{connect} or a
 ##' transport constructor such as \code{\link{transport_bencode}}.
 ##' @export
 client <- function(transport){
-    transport <- transport
+    UseMethod("client")
+}
 
+##' @export
+client.nREPL <- function(transport){
     ## client function: no arg -> read; with args -> write
+    transport <- transport
     function(..., timeout = NULL){
         mes <- list(...)
         if(length(mes) == 0L)
@@ -50,9 +63,22 @@ client <- function(transport){
         else {
             if(is.null(mes[["id"]]))
                 mes[["id"]] <- uid()
-            transport$write(as.bendict(mes))
+            transport$write(mes)
         }
     }
+}
+
+##' @export
+client.EPC <- function(transport){
+    ## client function: no arg -> read; with args -> write
+    structure(function(..., timeout = NULL){
+        mes <- list(...)
+        if(length(mes) == 0L)
+            transport$read(timeout)
+        else {
+            transport$write(mes)
+        }
+    }, class = c(class(transport), "client"))
 }
 
 ##' @rdname client
@@ -62,6 +88,11 @@ client <- function(transport){
 ##' @param ... Key-value pairs of the request to be sent to nREPL server.
 ##' @export
 sync_request <- function(client, op, ...){
+    UseMethod("sync_request")
+}
+
+##' @export
+sync_request.nREPL <- function(client, op, ...){
     mes <- list(...)
     if(is.null(mes[["id"]])) mes[["id"]] <- uid()
     mes[["op"]] <- op
@@ -70,44 +101,72 @@ sync_request <- function(client, op, ...){
     out <- client(timeout = 1)
     accum <- list()
     while( is.null(out) || out[["id"]] != id ||
-            !any(c("error", "done") %in% out[["status"]]) ){
-        if(!is.null(out) && out[["id"]] == id)
-            accum[[length(accum) + 1L]] <- out
-        out <- client(timeout = 1)
-    }
+           !any(c("error", "done") %in% out[["status"]]) ){
+               if(!is.null(out) && out[["id"]] == id)
+                   accum[[length(accum) + 1L]] <- out
+               out <- client(timeout = 1)
+           }
     accum[[length(accum) + 1L]] <- out
     accum
 }
 
-##' @rdname client
 ##' @export
-sync_request0 <- function(client, op, ...)
-    combine_responses(sync_request(client = client, op = op, ...))
+sync_request.EPC <- function(client, type, ...){
+    id <- uid()
+    mes <- c(list(type, id), list(...))
+    do.call(client, mes)
+    out <- client(timeout = 1)
+    accum <- list()
+    while(is.null(out) || !as.character(out[[1]]) %in% c("return", "return-error", "epc-error")){
+               if(!is.null(out) && out[["id"]] == id)
+                  accum[[length(accum) + 1L]] <- out
+              out <- client(timeout = 1)
+          }
+    accum[[length(accum) + 1L]] <- out
+    accum
+}
+
 
 ##' @rdname client
-##' @param response_list List of \code{bendict} objects to be combined together.
 ##' @export
-combine_responses <- function(response_list){
+sync_request0 <- function(client, op, ...){
+    UseMethod("sync_request0")
+}
+
+##' @export
+sync_request0.EPC <- function(client, type, ...){
+    out <- sync_request(client = client, type = type, ...)
+    id <- out[[1]]$id
+    nms <- as.character(unlist(lapply(out, "[[", "op")))
+    args <- sapply(out, "[[", "args", simplify = F)
+    c(list(id = id),
+      structure(args, names = nms))
+}
+
+##' @export
+sync_request0.nREPL <- function(client, op, ...)
+    combine_responses.nREPL(sync_request(client = client, op = op, ...))
+
+combine_responses.nREPL <- function(response_list){
     ## Certain message slots are combined in special ways:
     ## - only the last :id, :ns and :session is retained
     ## - :value and :status  are accumulated into a vector
     ## - string values (associated with e.g. :out and :err) are concatenated
-    as.bendict(
-        Reduce(function(accum, el){
-            for(nm in names(el)){
-                accum[[nm]] <-
-                    switch(nm, 
-                           id = ,
-                           session =, 
-                           ns = el[[nm]], 
-                           status =,
-                           value = c(accum[[nm]], el[[nm]]),
-                           if(is.character(el[[nm]]))
-                               paste0(accum[[nm]], el[[nm]])
-                           else
-                               c(accum[[nm]], el[[nm]]))
-            }
-            accum
-        }, response_list, list()))
+    Reduce(function(accum, el){
+        for(nm in names(el)){
+            accum[[nm]] <-
+                switch(nm, 
+                       id = ,
+                       session =, 
+                       ns = el[[nm]], 
+                       status =,
+                       value = c(accum[[nm]], el[[nm]]),
+                       if(is.character(el[[nm]]))
+                           paste0(accum[[nm]], el[[nm]])
+                       else
+                           c(accum[[nm]], el[[nm]]))
+        }
+        accum
+    }, response_list, list())
 }
 

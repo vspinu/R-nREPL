@@ -1,3 +1,4 @@
+
 ##' Create middleware functions.
 ##'
 ##' Middleware is a higher-order function of one argument that accepts a handler
@@ -16,7 +17,7 @@
 ##' idem, where \code{response} is a named list of response arguments. Each
 ##' \code{response} must contain at least two arguments \code{id} of the
 ##' incoming message and \code{session}. This is best done with a helper
-##' \code{\link{respfor}} utility function.
+##' \code{\link{nrepl_resp_for}} utility function.
 ##'
 ##' For a detailed technical details on the protocol see
 ##' \url{https://github.com/clojure/tools.nrepl} and the package code.
@@ -39,16 +40,26 @@
 ##' @param fun Actual middleware function that accepts one argument, a handler,
 ##' and returns a handler.
 ##' @seealso \code{\link{start_server}}, \code{\link{transport}},
-##' \code{\link{respfor}}, \code{\link{mw_describe}}, \code{\link{mw_describe}},
+##' \code{\link{nrepl_resp_for}}, \code{\link{mw_describe}}, \code{\link{mw_describe}},
 ##' \code{\link{mw_eval}}, \code{\link{mw_session}}.
 ##' @return A wrapped middleware function \code{fun} with a \code{descriptor}
 ##' attribute for internal use.
 ##' @export
 middleware <- function(name,
-                       handles = character(), 
-                       requires = character(),
-                       expects = character(),
-                       fun){
+                       handles, requires = c(), expects = c(), 
+                       fun) {
+
+    if (is.function(requires)){
+        fun <- requires
+        requires <- list()
+    }
+
+
+    if (is.function(expects)){
+        fun <- expects
+        expects <- list()
+    }
+
     descriptor <-
         list(handles = handles,
              expects = union(expects, "describe"),
@@ -57,12 +68,12 @@ middleware <- function(name,
     wrapped_fun <-
         function(handler){
             h2 <- fun(handler)
-            function(op, ops = list(), ...){
-                if( op == "describe" ){
-                    ops[[name]] <- handles
-                    h2(op = op, ops = ops, ...)
+            function(tr, msg){
+                if( msg$op == "describe" || msg$op == "methods"){
+                    msg$OPS <- c(msg$OPS, handles)
+                    h2(tr, msg)
                 } else {
-                    h2(op = op, ...)
+                    h2(tr, msg)
                 }
             }
         }
@@ -71,51 +82,24 @@ middleware <- function(name,
     wrapped_fun
 }
 
-##' Various utility functions for writing middleware.
-##' 
-##' @name middleware_utils
-##' @param msg Incoming message containing \code{id} and \code{session}
-##' elements.
-##' @param ... Key-value pairs of the response for \code{repfor} and
-##' \code{test_middleware}. Format arguments for \code{message} in
-##' \code{errorfor}.
-##' @param lst A list which is merged with the elements in \code{...}
+##' @rdname middleware_utils
+##' @param message error message to be sent through
 ##' @export
-respfor <- function(msg, ..., lst = list()){
-    stopifnot(!is.null(msg[["id"]]))
-    if (is.null(msg[["session"]])) msg[["session"]] <- "R/unknown"
-    resp <- c(list(...), lst)
-    resp[c("id", "session")] <- msg[c("id", "session")]
-    resp
+error_for <- function(msg, message = "", ..., additional_status = list()){
+    UseMethod("error_for")
 }
 
 ##' @rdname middleware_utils
-##' @param transport transport object as returned by \code{connect} or
-##' \code{transport_bencode}.
-##' @param message Error message to be sent through.
 ##' @export
-errorfor <- function(msg, message = "", ..., additional_status = list()){
-    respfor(msg,
-            error = do.call(sprintf, c(list(message), list(...))),
-            status = c(list("error", "done"), additional_status))
+resp_for <- function(msg, ..., .lst = list()){
+    UseMethod("resp_for")
 }
 
 ##' @rdname middleware_utils
-##' @param mw Middleware to test
 ##' @export
-test_middleware <- function(mw, ...){
-    con <- textConnection("test", open = "w")
-    on.exit(close(con))
-    h <- pre_handle(mw(unknown_op))
-    trs <- nREPL:::transport_print(con)
-    id <- 9999L
-    tryCatch(h(id = id, tr = trs, ...),
-             backToTopError = function(c){
-                 trs$write(errorfor(c(list(id = id, session = "R/test"), list(...)),
-                                    c$message, additional_status = c$status))
-             }, 
-             backToTop = function(c) NULL)
-    cat(textConnectionValue(con), sep = "\n")
+unknown_op <- function(tr, msg){
+    resp <- error_for(msg, "Unknown op: '%s'",  msg$op)
+    tr$write(resp)
 }
 
 ##' @rdname middleware_utils
@@ -134,4 +118,37 @@ backToTopError <- function(message, ..., status = list()){
                  status = status)
     class(cond) <- c("backToTopError", "error", "condition")
     stop(cond)
+}
+
+linearize_mws <- function(mws){
+    len <- length(mws)
+    nms <- names(mws)
+    reqexp <- matrix(0L, nrow = len, ncol = len, dimnames = list(nms, nms))
+    for(nm in nms){
+        desc <- attr(mws[[nm]], "descriptor")
+        if(length(desc$expects))
+            reqexp[desc$expects, nm] <- reqexp[desc$expects, nm] + 1L
+        if(length(desc$requires))
+            reqexp[desc$requires, nm] <- reqexp[desc$requires, nm] - 1L
+    }
+    ## print(reqexp)
+    mws[do.call(order, as.data.frame(reqexp))]
+}
+
+##' @rdname middleware_utils
+##' @param mw Middleware for testing
+##' @export
+test_middleware <- function(mw, ...){
+    con <- textConnection("test", open = "w")
+    on.exit(close(con))
+    h <- pre_handle(mw(unknown_op))
+    trs <- nREPL:::transport_print(con)
+    id <- 9999L
+    tryCatch(h(id = id, tr = trs, ...),
+             backToTopError = function(c){
+                 trs$write(error_for(c(list(id = id, session = "R/test"), list(...)),
+                                     c$message, additional_status = c$status))
+             }, 
+             backToTop = function(c) NULL)
+    cat(textConnectionValue(con), sep = "\n")
 }

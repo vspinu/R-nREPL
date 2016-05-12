@@ -10,9 +10,20 @@ Description: nREPL is *n*etwork REPL that provides a REPL server and client,
     need to evaluate R code in remote environments.
 Depends:
     R (>= 2.14.1)
-Imports:
+Suggests:
     evaluate,
-    bencode
+    bencode,
+    elparser
 License: GPL
 URL: https://github.com/vspinu/R-nREPL
 BugReports: https://github.com/vspinu/R-nREPL/issues
+Collate:
+    'base.R'
+    'client.R'
+    'client_requests.R'
+    'middleware.R'
+    'epc_middleware.R'
+    'nrepl_middleware.R'
+    'server.R'
+    'transport.R'
+RoxygenNote: 5.0.1

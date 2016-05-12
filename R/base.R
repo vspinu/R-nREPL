@@ -15,13 +15,20 @@
 ##' \code{\link{middleware}}
 ##' @references Full documentation and demos: \url{http://yihui.name/knitr/};
 ##' FAQ's: \url{https://github.com/yihui/knitr/blob/master/FAQ.md}
-##' @import evaluate
-##' @import bencode
 NULL
 
-
-### COUNTER
+sessions <- new.env()
+.default_session_id <- "R/default"
 
+##' Various utils
+##'
+##' @rdname middleware_utils
+##' @export
+q <- function(x){
+    x <- as.character(substitute(x))
+    attr(x, "quoted") <- TRUE
+    x
+}
 uid <- local({
     message_id <- 0L
     function(){
@@ -30,67 +37,16 @@ uid <- local({
     }
 })
 
-
-### SESSIONS
-
-sessions <- new.env()
-.default_session_id <- "R/default"
-
-create_session <- function(transport, from_session = NULL){
-    if(is.null(from_session)){
-        id <- .default_session_id
-        if(is.null(sessions[[id]]))
-            sessions[[id]] <- list(id = id)
-        sessions[[id]]
-    } else {
-        id <- tempfile("", "R")
-        sessions[[id]] <- assoc(from_session, id = id)
-        sessions[[id]]
-    }
+.R_versions <- function(verbose = F){
+    rv <-
+        if(verbose) unclass(R.version)
+        else list() 
+    rv3 <- as.vector(unclass(getRversion()))[[1]]
+    rv[c("major", "minor", "incremental")] <- rv3
+    rv[["version-string"]] <- R.version.string
+    rv[["version.string"]] <- NULL
+    rv
 }
-
-pre_handle <- function(h){
-    function(id, op, tr, session = NULL, ...){
-        cat(as.character(Sys.time()), sprintf("-->> [%s]", id), op, "\n")
-        if(is.null(session)){
-            ## create a new session each time
-            the_session <- create_session(tr)
-            session <- the_session[["id"]]
-        } else if ( is.null(the_session <- sessions[[session]]) ){
-            ## we check here for session id for any mw!
-            tr$write(list(id = id, session = session,
-                                 status = c("error", "unknown-session", "done")))
-            return()
-        }
-        h(id = id, op = op, tr = tr, session = session, ...)
-    }
-}
-
-
-### MIDDLEWARE NUTS AND BOLTS 
-
-unknown_op <- function(op, tr, ...){
-    resp <- respfor(list(...), op = op, status = c("error", "unknown-op", "done"))
-    tr$write(resp)
-}
-
-linearize_mws <- function(mws){
-    len <- length(mws)
-    nms <- names(mws)
-    reqexp <- matrix(0L, nrow = len, ncol = len, dimnames = list(nms, nms))
-    for(nm in nms){
-        desc <- attr(mws[[nm]], "descriptor")
-        if(length(desc$expects))
-            reqexp[desc$expects, nm] <- reqexp[desc$expects, nm] + 1L
-        if(length(desc$requires))
-            reqexp[desc$requires, nm] <- reqexp[desc$requires, nm] - 1L
-    }
-    ## print(reqexp)
-    mws[do.call(order, as.data.frame(reqexp))]
-}
-
-
-### INTERNAL UTILS
 
 assoc <- function(obj, ..., non_null = FALSE){
     dots <- list(...)
@@ -105,4 +61,10 @@ dissoc <- function(obj, ..., keys = c()){
     keys <- c(unlist(), keys)
     obj[[keys]] <- NULL
     obj
+}
+
+dget <- function(obj, val, default = NULL){
+    res <- obj[["val"]]
+    if(is.null(res)) default
+    else res
 }
